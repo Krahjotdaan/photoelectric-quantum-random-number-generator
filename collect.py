@@ -1,13 +1,15 @@
 import time
-import csv
 import numpy as np
 import serial
 import serial.tools.list_ports
+from additional_suite.entropy_estimator import *
 
-
-def collect(samples, filename='data.csv', baud_rate=1500000):
-    PACKET_SAMPLES = 256
-    PACKET_BYTES = PACKET_SAMPLES * 2
+def collect(samples, filename='data.bin', baud_rate=2000000):
+    """
+    Сбор данных с АЦП и сохранение в бинарный файл
+    """
+    PACKET_SAMPLES = 2048
+    PACKET_BYTES = PACKET_SAMPLES * 2 
 
     ports = serial.tools.list_ports.comports()
     port_name = None
@@ -20,14 +22,13 @@ def collect(samples, filename='data.csv', baud_rate=1500000):
     if not port_name:
         print("Ошибка: Устройство не найдено. Проверьте подключение.")
         return
+    
+    ser = serial.Serial(port_name, baud_rate, timeout=1)
 
     try:
-        ser = serial.Serial(port_name, baud_rate, timeout=1)
         time.sleep(1) 
-
         ser.write(b's')
         time.sleep(0.5)
-
         ser.reset_input_buffer()
 
         print(f"Сбор {samples:,} отсчетов... (Ctrl+C для остановки)")
@@ -55,33 +56,56 @@ def collect(samples, filename='data.csv', baud_rate=1500000):
 
         end_time = time.time()
 
+        total_bytes = min(len(raw_buffer), samples * 2)
+        
+        if total_bytes == 0:
+            print("Нет данных для сохранения.")
+            return
+
+        data = np.frombuffer(bytes(raw_buffer[:total_bytes]), dtype=np.uint16)
+
+        with open(filename, 'wb') as f:
+            f.write(data.tobytes())
+
+        elapsed = end_time - start_time
+        rate = len(data) / elapsed if elapsed > 0 else 0
+
+        print(f"\n\nСобрано: {len(data):,} отсчетов")
+        print(f"Время сбора: {elapsed:.1f} сек")
+        print(f"Скорость: {rate:,.0f} отсчетов/сек")
+        print(f"Файл сохранён: {filename} (Размер: {total_bytes / 1024 / 1024:.2f} МБ)")
+
+        diff_array = np.diff(data)
+        raw_bits = (diff_array & 1).astype(np.uint8)
+        
+        min_entropy = min_entropy_nist_90b(raw_bits)
+        safe_compression_ratio = calculate_safe_compression_ratio(min_entropy)
+        
+        print(f"\nМин-энтропия: {min_entropy:.4f} бит/бит")
+        print(f"Рекомендуемый коэффициент сжатия: ≤ {safe_compression_ratio:.2f}")
+
     except KeyboardInterrupt:
         print("\n\nОстановлено пользователем.")
         end_time = time.time()
     except Exception as e:
         print(f"\nОшибка: {e}")
+        import traceback
+        traceback.print_exc()
         return
     finally:
         if 'ser' in locals() and ser.is_open:
             ser.close()
 
-    total_bytes = min(len(raw_buffer), samples * 2)
-    data = np.frombuffer(bytes(raw_buffer[:total_bytes]), dtype=np.uint16)
 
-    if len(data) == 0:
-        print("Нет данных для сохранения.")
-        return
-
-    with open(filename, 'w', newline='') as f:
-        writer = csv.writer(f)
-        writer.writerow(['index', 'value'])
-        for i, val in enumerate(data):
-            writer.writerow([i, int(val)])
-
-    elapsed = end_time - start_time
-    rate = len(data) / elapsed if elapsed > 0 else 0
-
-    print(f"\n\nСобрано: {len(data):,} отсчетов")
-    print(f"Время: {elapsed:.1f} сек")
-    print(f"Скорость: {rate:,.0f} отсчетов/сек")
-    print(f"Файл сохранён: {filename}")
+def load_data_bin(filename):
+    try:
+        data = np.fromfile(filename, dtype=np.uint16)
+        print(f"Загружено {len(data)} отсчетов из {filename}.")
+        return data
+    except FileNotFoundError:
+        print(f"Ошибка: Файл {filename} не найден.")
+        return np.array([], dtype=np.uint16)
+    except Exception as e:
+        print(f"Ошибка при чтении файла: {e}")
+        return np.array([], dtype=np.uint16)
+    
