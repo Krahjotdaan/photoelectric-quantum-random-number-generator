@@ -1,0 +1,6 @@
+__pycache__
+.venv
+qrng_config.json
+build
+dist
+QRNG_Utility.spec

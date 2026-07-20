@@ -2,7 +2,6 @@ import time
 import numpy as np
 import serial
 import serial.tools.list_ports
-from additional_suite.entropy_estimator import *
 
 def collect(samples, filename='data.bin', baud_rate=2000000):
     """
@@ -15,7 +14,7 @@ def collect(samples, filename='data.bin', baud_rate=2000000):
     port_name = None
     for p in ports:
         print(f"Найден порт: {p.device} - {p.description}")
-        if 'Arduino' in p.description or 'USB Serial' in p.description or 'COM5' in p.description:
+        if 'Arduino' in p.description or 'USB Serial' in p.description or 'COM5' in p.description or 'COM3' in p.description:
             port_name = p.device
             break
 
@@ -74,15 +73,6 @@ def collect(samples, filename='data.bin', baud_rate=2000000):
         print(f"Время сбора: {elapsed:.1f} сек")
         print(f"Скорость: {rate:,.0f} отсчетов/сек")
         print(f"Файл сохранён: {filename} (Размер: {total_bytes / 1024 / 1024:.2f} МБ)")
-
-        diff_array = np.diff(data)
-        raw_bits = (diff_array & 1).astype(np.uint8)
-        
-        min_entropy = min_entropy_nist_90b(raw_bits)
-        safe_compression_ratio = calculate_safe_compression_ratio(min_entropy)
-        
-        print(f"\nМин-энтропия: {min_entropy:.4f} бит/бит")
-        print(f"Рекомендуемый коэффициент сжатия: ≤ {safe_compression_ratio:.2f}")
 
     except KeyboardInterrupt:
         print("\n\nОстановлено пользователем.")

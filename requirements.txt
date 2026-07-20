@@ -2,3 +2,4 @@ numpy
 scipy
 pyserial
 gostcrypto
+matplotlib

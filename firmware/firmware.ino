@@ -1,0 +1,130 @@
+#include <Arduino.h>
+#include <hardware/adc.h>
+#include <hardware/dma.h>
+#include <hardware/pwm.h>
+#include <hardware/irq.h>
+#include <hardware/clocks.h>
+
+#define LED_PIN         6
+#define PACKET_SAMPLES  2048
+#define PACKET_BYTES    (PACKET_SAMPLES * 2)
+#define NUM_BUFFERS     2
+
+static uint16_t dma_buffers[NUM_BUFFERS][PACKET_SAMPLES];
+static volatile uint8_t buffer_ready[NUM_BUFFERS] = {0, 0};
+static volatile uint8_t active_buffer = 0;
+static volatile bool running = false;
+
+static uint dma_chan;
+static uint pwm_slice;
+
+void dma_handler(void);
+
+void dma_handler(void) {
+    dma_hw->ints0 = 1u << dma_chan;
+
+    buffer_ready[active_buffer] = 1;
+    active_buffer ^= 1;
+
+    dma_channel_set_write_addr(dma_chan, dma_buffers[active_buffer], false);
+    dma_channel_set_trans_count(dma_chan, PACKET_SAMPLES, true);
+}
+
+static void setup_pwm(void) {
+    pwm_slice = pwm_gpio_to_slice_num(LED_PIN);
+    gpio_set_function(LED_PIN, GPIO_FUNC_PWM);
+
+    uint32_t wrap = 999;
+    uint16_t level = 250;
+
+    pwm_config cfg = pwm_get_default_config();
+    pwm_config_set_clkdiv(&cfg, 1.0f);
+    pwm_config_set_wrap(&cfg, wrap);
+    pwm_init(pwm_slice, &cfg, false);
+    pwm_set_chan_level(pwm_slice, PWM_CHAN_A, level);
+}
+
+static void setup_adc_dma(void) {
+    adc_init();
+    adc_gpio_init(26);
+    adc_select_input(0);
+    adc_set_clkdiv(0.0f);
+
+    adc_fifo_setup(
+        true,
+        true,
+        1,
+        false,
+        false
+    );
+
+    dma_chan = dma_claim_unused_channel(true);
+
+    dma_channel_config cfg = dma_channel_get_default_config(dma_chan);
+    channel_config_set_transfer_data_size(&cfg, DMA_SIZE_16);
+    channel_config_set_read_increment(&cfg, false);
+    channel_config_set_write_increment(&cfg, true);
+    channel_config_set_dreq(&cfg, DREQ_ADC);
+
+    dma_channel_configure(
+        dma_chan,
+        &cfg,
+        dma_buffers[0],
+        &adc_hw->fifo,
+        PACKET_SAMPLES,
+        false
+    );
+
+    dma_channel_set_irq0_enabled(dma_chan, true);
+    irq_set_exclusive_handler(DMA_IRQ_0, dma_handler);
+    irq_set_enabled(DMA_IRQ_0, true);
+}
+
+static void start_sampling(void) {
+    memset((void*)buffer_ready, 0, sizeof(buffer_ready));
+    active_buffer = 0;
+
+    dma_channel_set_write_addr(dma_chan, dma_buffers[0], false);
+    dma_channel_set_trans_count(dma_chan, PACKET_SAMPLES, true);
+    dma_channel_start(dma_chan);
+
+    adc_run(true);
+    pwm_set_enabled(pwm_slice, true);
+    running = true;
+}
+
+static void stop_sampling(void) {
+    pwm_set_enabled(pwm_slice, false);
+    adc_run(false);
+    adc_fifo_drain();
+    running = false;
+}
+
+void setup() {
+    Serial.begin(2000000);
+    while (!Serial) { delay(10); }
+
+    setup_pwm();
+    setup_adc_dma();
+}
+
+void loop() {
+    if (!running) {
+        if (Serial.available() > 0) {
+            char cmd = Serial.read();
+            if (cmd == 's' || cmd == 'S') {
+                start_sampling();
+            }
+        }
+        return;
+    }
+
+    for (int i = 0; i < NUM_BUFFERS; i++) {
+        if (!buffer_ready[i]) continue;
+
+        Serial.write((uint8_t*)dma_buffers[i], PACKET_BYTES);
+        buffer_ready[i] = 0;
+    }
+
+    delayMicroseconds(10);
+}
