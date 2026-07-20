@@ -181,7 +181,7 @@ class MainWindow(QWidget):
         for p in ports:
             desc_lower = p.description.lower()
             dev_lower = p.device.lower()
-            if 'arduino' in desc_lower or 'usb serial' in desc_lower or 'com5' in dev_lower:
+            if 'arduino' in desc_lower or 'usb serial' in desc_lower or 'com5' in dev_lower or 'com3' in dev_lower:
                 self.detected_port = p.device
                 break
                 
@@ -195,7 +195,7 @@ class MainWindow(QWidget):
             self.detected_port = ports[0].device
             
         if not self.detected_port:
-            self.detected_port = "COM5"
+            self.detected_port = "COM3"
 
     def log(self, msg):
         self._last_was_progress = False
