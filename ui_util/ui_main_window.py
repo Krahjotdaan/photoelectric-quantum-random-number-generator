@@ -30,6 +30,7 @@ class MainWindow(QWidget):
         self.METHODS_NAMES = ["ARX", "SHA-256", "SHA3-256", "SHA-512", "SHA3-512", "Blake2s (256 bits)", "Blake2b (512 bits)", "Стрибог-256", "Стрибог-512"]
         self.METHODS = dict(zip(self.METHODS_NAMES, self.METHOD))
         self.init_ui()
+        self.load_config_to_ui()
 
     def init_ui(self):
         self.setWindowTitle("QRNG Utility v1.0")
@@ -49,11 +50,11 @@ class MainWindow(QWidget):
         self.spn_target = QSpinBox()
         self.spn_target.setRange(100000, 100000000)
         self.spn_target.setSingleStep(200000)
-        self.spn_target.setValue(1000000)
+        self.spn_target.setValue(self.config.get("target_bits", 1000000))
         
         self.spn_ratio = QSpinBox()
         self.spn_ratio.setRange(2, 16)
-        self.spn_ratio.setValue(2)
+        self.spn_ratio.setValue(self.config.get("compression_ratio", 2))
         
         self.cmb_method = QComboBox()
         self.cmb_method.addItems(self.METHODS_NAMES)
@@ -161,6 +162,21 @@ class MainWindow(QWidget):
         right_panel.addWidget(self.progress_bar)
         main_layout.addLayout(right_panel)
 
+    def load_config_to_ui(self):
+        """Загрузить сохранённые параметры экстракции в UI"""
+        saved_method = self.config.get("method", "arx")
+        if saved_method in self.METHOD:
+            idx = self.METHOD.index(saved_method)
+            self.cmb_method.setCurrentIndex(idx)
+
+    def save_ui_config(self):
+        """Сохранить текущие параметры UI в config"""
+        self.config["target_bits"] = self.spn_target.value()
+        self.config["compression_ratio"] = self.spn_ratio.value()
+        self.config["method"] = self.METHODS[self.cmb_method.currentText()]
+        self.config["baud_rate"] = 2000000
+        save_config(self.config)
+
     def toggle_all_tests(self, state):
         checked = state == 2
         for cb in self.test_checkboxes:
@@ -230,6 +246,7 @@ class MainWindow(QWidget):
             self.log_view.clear()
 
     def start_process(self):
+        self.save_ui_config()
         method = self.METHODS[self.cmb_method.currentText()]
         raw_f, ext_f, rep_f = get_next_filenames(self.config, method)
         

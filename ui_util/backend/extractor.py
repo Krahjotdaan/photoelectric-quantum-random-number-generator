@@ -94,7 +94,7 @@ def hash_extract(raw_data, target_bits, hash_type="sha3_256", compression_ratio=
     output_bits_per_hash = hash_bits // compression_ratio
     output_bytes = (output_bits_per_hash + 7) // 8 
 
-    raw_array = np.diff(np.asarray(raw_data, dtype=np.uint16))
+    raw_array = np.asarray(raw_data, dtype=np.uint16)
     diff_array = np.diff(raw_array)
     raw_bits = (diff_array & 1).astype(np.uint8)
 

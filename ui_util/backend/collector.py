@@ -19,7 +19,7 @@ def collect_data_to_memory(samples, port_device, baud_rate=2000000,
     Returns:
         np.ndarray(dtype=np.uint16) или None при ошибке
     """
-    PACKET_SAMPLES = 2048
+    PACKET_SAMPLES = 4096
     PACKET_BYTES = PACKET_SAMPLES * 2
     
     def log(msg):

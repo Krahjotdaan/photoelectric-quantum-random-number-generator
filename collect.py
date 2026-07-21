@@ -2,13 +2,14 @@ import time
 import numpy as np
 import serial
 import serial.tools.list_ports
+from config import PACKET_SAMPLES, PACKET_BYTES, BAUD_RATE, SERIAL_TIMEOUT
 
-def collect(samples, filename='data.bin', baud_rate=2000000):
+def collect(samples, filename='data.bin', baud_rate=None):
     """
     Сбор данных с АЦП и сохранение в бинарный файл
     """
-    PACKET_SAMPLES = 2048
-    PACKET_BYTES = PACKET_SAMPLES * 2 
+    if baud_rate is None:
+        baud_rate = BAUD_RATE
 
     ports = serial.tools.list_ports.comports()
     port_name = None
@@ -22,7 +23,7 @@ def collect(samples, filename='data.bin', baud_rate=2000000):
         print("Ошибка: Устройство не найдено. Проверьте подключение.")
         return
     
-    ser = serial.Serial(port_name, baud_rate, timeout=1)
+    ser = serial.Serial(port_name, baud_rate, timeout=SERIAL_TIMEOUT)
 
     try:
         time.sleep(1) 

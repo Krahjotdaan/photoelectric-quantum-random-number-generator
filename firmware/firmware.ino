@@ -3,11 +3,13 @@
 #include <hardware/dma.h>
 #include <hardware/pwm.h>
 #include <hardware/irq.h>
+#include <hardware/watchdog.h>
 
 #define LED_PIN         6
 #define PACKET_SAMPLES  4096
 #define PACKET_BYTES    (PACKET_SAMPLES * 2)
 #define NUM_BUFFERS     3
+#define WATCHDOG_TIMEOUT_MS 1000
 
 static uint16_t dma_buffers[NUM_BUFFERS][PACKET_SAMPLES];
 static volatile uint8_t buffer_ready[NUM_BUFFERS] = {0, 0, 0};
@@ -110,8 +112,11 @@ void loop_optimized(void) {
 }
 
 void setup() {
-    Serial.begin(3000000);
+    Serial.begin(2000000);
     while (!Serial) { delay(10); }
+    
+    // Watchdog: если loop() зависнет, МК перезагрузится через 1 сек
+    watchdog_enable(WATCHDOG_TIMEOUT_MS, true);
     
     setup_pwm_optimized();
     setup_adc_dma_optimized();
@@ -119,4 +124,7 @@ void setup() {
 
 void loop() {
     loop_optimized();
+    
+    // Сброс watchdog — выполняется за несколько тактов (~50 нс)
+    watchdog_update();
 }
