@@ -90,12 +90,7 @@ pip install -r requirements.txt
 3. **Выберите плату:**
    - **Tools** → **Board** → **Raspberry Pi RP2040 Boards** → **Waveshare RP2040 One** (или вашу плату)
 
-4. **Настройте скорость UART (важно!):**
-   - В файле [`firmware.ino`](firmware/firmware.ino:113) стоит `Serial.begin(3000000)`
-   - Убедитесь, что в Arduino IDE **Tools** → **USB Stack** выбран **"Adafruit TinyUSB"**
-   - Без TinyUSB скорость 3 Мбит/с недоступна
-
-5. **Загрузите прошивку:**
+4. **Загрузите прошивку:**
    - Подключите RP2040 через USB
    - Нажмите кнопку **Upload** (→) в Arduino IDE
    - При необходимости удерживайте BOOTSEL на плате при подключении
@@ -129,15 +124,13 @@ make
 
 ---
 
-## 3. Запуск CLI-сценария
-
-### 3.1. Полный цикл: сбор → экстракция → тестирование
+## 3.  Полный цикл: сбор → экстракция → тестирование
 
 ```python
-# В Jupyter Notebook или Python-скрипте
 from collect import collect, load_data_bin
 from extract import arx_extract
 from run_tests import run_nist
+from additional_suite.entropy_estimator import min_entropy_nist_90b, calculate_safe_compression_ratio
 
 # 1. Сбор 3 млн отсчётов
 collect(3_000_000, "data.bin")
@@ -145,22 +138,22 @@ collect(3_000_000, "data.bin")
 # 2. Загрузка
 raw = load_data_bin("data.bin")
 
-# 3. Экстракция (ARX, коэффициент сжатия 2)
+# 3. Расчет мин. энтропии и безопасного коэффициента сжатия
+diff_array = np.diff(raw)
+diff_bits = (diff_array & 1).astype(np.uint8)
+
+min_entropy = min_entropy_nist_90b(diff_bits)
+safe_compression_ratio = calculate_safe_compression_ratio(min_entropy)
+
+print(f"\nМин-энтропия: {min_entropy:.4f} бит/бит")
+print(f"Рекомендуемый коэффициент сжатия: ≤ {safe_compression_ratio:.2f}")
+
+# 4. Экстракция (ARX, коэффициент сжатия 2)
 bits = arx_extract(raw, 1_000_000, 2)
 
-# 4. Запуск NIST-тестов
+# 5. Запуск NIST-тестов
 run_nist(bits)
 ```
-
-### 3.2. Пошагово
-
-**Сбор данных:**
-
-```bash
-python -c "from collect import collect; collect(3_000_000, 'data.bin')"
-```
-
-**Экстракция и тестирование** — через [`process.ipynb`](process.ipynb) (Jupyter Notebook).
 
 ---
 

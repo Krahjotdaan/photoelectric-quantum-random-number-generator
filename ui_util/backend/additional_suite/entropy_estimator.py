@@ -210,6 +210,146 @@ def estimate_multimmc(data, bits_per_sample, max_order=4):
     return max(0.0, min(h, bits_per_sample))
 
 
+import math
+import numpy as np
+
+
+def estimate_lz78y(data, bits_per_sample=1):
+    n = len(data)
+    if n < 1000:
+        return None
+    
+    B = 16 
+    max_dict_size = 65536
+    N = n - B - 1 
+    
+    if N <= 0:
+        return None
+    
+    dictionary = {}
+    dict_size = 0
+    
+    correct = np.zeros(N, dtype=np.int8)
+    
+    for i in range(B + 2, n):
+        idx = i - B - 1 
+        
+        for j in range(B, 0, -1):
+            start = i - j - 1
+            end = i - 1
+            if start < 0:
+                continue
+                
+            prev_tuple = tuple(data[start:end])
+            
+            if prev_tuple not in dictionary:
+                if dict_size < max_dict_size:
+                    dictionary[prev_tuple] = {}
+                    dict_size += 1
+            
+            if prev_tuple in dictionary:
+                next_sym = data[i - 1]
+                dictionary[prev_tuple][next_sym] = dictionary[prev_tuple].get(next_sym, 0) + 1
+        
+        prediction = None
+        max_count = 0
+        
+        for j in range(B, 0, -1):
+            start = i - j
+            end = i
+            if start < 0:
+                continue
+                
+            prev_tuple = tuple(data[start:end])
+            
+            if prev_tuple in dictionary and dictionary[prev_tuple]:
+                best_sym = max(dictionary[prev_tuple], 
+                              key=lambda s: (dictionary[prev_tuple][s], s))
+                count = dictionary[prev_tuple][best_sym]
+                
+                if count > max_count:
+                    max_count = count
+                    prediction = best_sym
+        
+        if prediction is not None and prediction == data[i]:
+            correct[idx] = 1
+    
+    C = int(np.sum(correct))
+    P_global = C / N if N > 0 else 0.0
+    
+    if P_global == 0.0:
+        P_global_prime = 1.0 - (0.01 ** (1.0 / N))
+    else:
+        z = 2.576  # Z(1-0.005)
+        se = math.sqrt(P_global * (1.0 - P_global) / (N - 1))
+        P_global_prime = min(1.0, P_global + z * se)
+    
+    max_run = 0
+    current_run = 0
+    for val in correct:
+        if val == 1:
+            current_run += 1
+            max_run = max(max_run, current_run)
+        else:
+            current_run = 0
+    
+    r = max_run + 1
+    
+    P_local = _solve_p_local(r, N)
+    
+    k = 2 ** bits_per_sample  # Размер алфавита
+    
+    p_max = max(P_global_prime, P_local, 1.0 / k)
+    
+    if p_max >= 1.0:
+        return 0.0
+    
+    h = -math.log2(p_max)
+    return max(0.0, min(h, float(bits_per_sample)))
+
+
+def _solve_p_local(r, N, tol=1e-12, max_iter=1000):
+    lo, hi = 1e-15, 1.0 - 1e-15
+    
+    for _ in range(max_iter):
+        mid = (lo + hi) / 2.0
+        f_val = _compute_equation(mid, r, N)
+        
+        if abs(f_val - 0.99) < tol:
+            return mid
+        
+        if f_val < 0.99:
+            lo = mid
+        else:
+            hi = mid
+    
+    return (lo + hi) / 2.0
+
+
+def _compute_equation(p_local, r, N):
+    q = 1.0 - p_local
+    
+    x = 1.0
+    for _ in range(10):
+        if p_local <= 0 or r <= 0:
+            break
+        ratio = (q * p_local ** r) / (r + 1)
+        x = 1.0 + ratio * x ** r
+    
+    if x <= 0 or x >= 1:
+        return 0.0
+    
+    term1 = p_local ** x
+    term2 = (r + 1 - r * x) * q
+    denominator = x ** (N + 1)
+    
+    if denominator == 0:
+        return 0.0
+    
+    result = 1.0 - (term1 * term2) / denominator
+    return result
+
+
 def min_entropy_nist_90b(data, bits_per_sample=1, logger=None):
     def log(msg):
         if logger:
@@ -237,6 +377,7 @@ def min_entropy_nist_90b(data, bits_per_sample=1, logger=None):
         ("MultiMCW", lambda: estimate_multimcw(data, bits_per_sample)),
         ("Lag", lambda: estimate_lag(data, bits_per_sample)),
         ("MultiMMC", lambda: estimate_multimmc(data, bits_per_sample)),
+        # ("LZ78Y", lambda: estimate_lz78y(data, bits_per_sample)),
     ]
 
     for name, func in estimators:
