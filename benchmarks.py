@@ -45,7 +45,7 @@ def benchmark_hash_extraction(data, target_bits, ratio, hash_type, n_runs=3):
     return avg_time, bits_per_sec
 
 
-def benchmark_collect(samples, baud_rate=2000000):
+def benchmark_collect(samples, baud_rate=3000000):
     """Измерение скорости сбора данных (требуется устройство)."""
     from collect import collect
     import tempfile
@@ -102,16 +102,9 @@ def main():
         except Exception as e:
             print(f"    {h:<20} {'ОШИБКА':<15} {str(e)[:40]}")
 
-    # --- Пропускная способность системы ---
-    print(f"\n[4] Пропускная способность системы")
-    print(f"    Сырые отсчёты:  {args.samples:,} шт")
-    print(f"    Выходные биты:  {args.target_bits:,} бит")
-    print(f"    Коэф. сжатия:   {args.ratio}")
-    print(f"    ARX:            {rate_arx:,.0f} бит/сек")
-
     # --- Live-тест сбора ---
     if args.live:
-        print(f"\n[5] Сбор данных с устройства (baud_rate=2000000)")
+        print(f"\n[5] Сбор данных с устройства (baud_rate=3000000)")
         try:
             benchmark_collect(args.samples)
         except Exception as e:

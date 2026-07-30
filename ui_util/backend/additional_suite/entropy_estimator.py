@@ -365,7 +365,6 @@ def min_entropy_nist_90b(data, bits_per_sample=1, logger=None):
         return 0.0
 
     estimates = []
-    total_time = 0.0
 
     estimators = [
         ("MCV", lambda: estimate_mcv(data, bits_per_sample)),
@@ -381,22 +380,14 @@ def min_entropy_nist_90b(data, bits_per_sample=1, logger=None):
     ]
 
     for name, func in estimators:
-        t0 = time.time()
         h = func()
-        t1 = time.time()
-        elapsed = t1 - t0
-        total_time += elapsed
-
         if h is not None:
             estimates.append((name, h))
-            log(f"{name:>25}: {h:.4f} бит/символ  ({elapsed:.3f} сек)")
+            log(f"{name}: {h:.4f} бит/символ")
         else:
-            log(f"{name:>25}: N/A  ({elapsed:.3f} сек)")
+            log(f"{name}: N/A")
 
     _, min_entropy = min(estimates, key=lambda x: x[1])
-
-    log(f"\n{'Мин-энтропия':>25}: {min_entropy:.4f} бит/бит")
-    log(f"{'Общее время':>25}: {total_time:.3f} сек")
 
     return min_entropy
 

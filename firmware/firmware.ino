@@ -73,8 +73,7 @@ void setup_adc_dma_optimized(void) {
     irq_set_exclusive_handler(DMA_IRQ_0, dma_handler);
     irq_set_enabled(DMA_IRQ_0, true);
     
-    // ✅ ПРАВИЛЬНЫЙ способ установки приоритета для RP2040:
-    irq_set_priority(DMA_IRQ_0, 0);  // 0 - самый высокий приоритет
+    irq_set_priority(DMA_IRQ_0, 0); 
 }
 
 void start_sampling_optimized(void) {
