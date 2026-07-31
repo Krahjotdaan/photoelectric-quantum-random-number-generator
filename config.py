@@ -14,6 +14,6 @@ import os
 PACKET_SAMPLES = int(os.environ.get("QRNG_PACKET_SAMPLES", "4096"))
 PACKET_BYTES = PACKET_SAMPLES * 2
 
-BAUD_RATE = int(os.environ.get("QRNG_BAUD_RATE", "2000000"))
+BAUD_RATE = int(os.environ.get("QRNG_BAUD_RATE", "3000000"))
 SERIAL_TIMEOUT = int(os.environ.get("QRNG_SERIAL_TIMEOUT", "1"))
 RECONNECT_TIMEOUT = int(os.environ.get("QRNG_RECONNECT_TIMEOUT", "30"))

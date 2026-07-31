@@ -9,7 +9,7 @@ DEFAULTS = {
     "extracted_path": str(Path.home() / "Documents" / "qrng_extracted"),
     "report_path": str(Path.home() / "Documents" / "qrng_report"),
     # Параметры экстракции
-    "baud_rate": 2000000,
+    "baud_rate": 3000000,
     "compression_ratio": 2,
     "target_bits": 1000000,
     "method": "arx",
